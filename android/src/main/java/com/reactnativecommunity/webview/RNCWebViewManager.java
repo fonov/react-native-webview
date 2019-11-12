@@ -16,6 +16,7 @@ import android.os.Environment;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -64,6 +65,7 @@ import com.reactnativecommunity.webview.events.TopLoadingProgressEvent;
 import com.reactnativecommunity.webview.events.TopLoadingStartEvent;
 import com.reactnativecommunity.webview.events.TopMessageEvent;
 import com.reactnativecommunity.webview.events.TopShouldStartLoadWithRequestEvent;
+import com.reactnativecommunity.webview.web3.JsInjectorClient;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -78,6 +80,8 @@ import java.util.Locale;
 import java.util.Map;
 
 import javax.annotation.Nullable;
+
+import com.reactnativecommunity.webview.web3.Web3ViewClient;
 
 /**
  * Manages instances of {@link WebView}
@@ -129,8 +133,12 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   protected boolean mAllowsFullscreenVideo = false;
   protected @Nullable String mUserAgent = null;
   protected @Nullable String mUserAgentWithApplicationName = null;
+  private JsInjectorClient jsInjectorClient;
+  private Web3ViewClient webViewClient;
 
   public RNCWebViewManager() {
+
+
     mWebViewConfig = new WebViewConfig() {
       public void configWebView(WebView webView) {
       }
@@ -154,6 +162,9 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   }
 
   protected RNCWebView createRNCWebViewInstance(ThemedReactContext reactContext) {
+    jsInjectorClient = new JsInjectorClient(reactContext);
+    webViewClient = new Web3ViewClient(jsInjectorClient);
+
     return new RNCWebView(reactContext);
   }
 
@@ -386,6 +397,12 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     ((RNCWebView) view).setInjectedJavaScript(injectedJavaScript);
   }
 
+  @ReactProp(name = "injectedJavaScriptPro")
+  public void injectedJavaScriptPro(WebView view, @Nullable ReadableArray injectedJavaScriptConfig) {
+    jsInjectorClient.setInjectJSConfig(injectedJavaScriptConfig);
+    ((RNCWebView) view).setInjectedJavaScriptConfig(injectedJavaScriptConfig);
+  }
+
   @ReactProp(name = "messagingEnabled")
   public void setMessagingEnabled(WebView view, boolean enabled) {
     ((RNCWebView) view).setMessagingEnabled(enabled);
@@ -526,7 +543,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   @Override
   protected void addEventEmitters(ThemedReactContext reactContext, WebView view) {
     // Do not register default touch emitter and let WebView implementation handle touches
-    view.setWebViewClient(new RNCWebViewClient());
+    view.setWebViewClient(new RNCWebViewClient(webViewClient));
   }
 
   @Override
@@ -686,6 +703,12 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     protected boolean mLastLoadFailed = false;
     protected @Nullable
     ReadableArray mUrlPrefixesForDefaultIntent;
+    private final Web3ViewClient internalClient;
+
+
+    public RNCWebViewClient(Web3ViewClient internalClient) {
+      this.internalClient = internalClient;
+    }
 
     @Override
     public void onPageFinished(WebView webView, String url) {
@@ -795,6 +818,16 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
 
     public void setUrlPrefixesForDefaultIntent(ReadableArray specialUrls) {
       mUrlPrefixesForDefaultIntent = specialUrls;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+      if (((RNCWebView) view).injectedJavaScriptConfig != null) {
+        return internalClient.shouldInterceptRequest(view, request);
+      } else {
+        return super.shouldInterceptRequest(view, request);
+      }
     }
   }
 
@@ -949,6 +982,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     protected boolean sendContentSizeChangeEvents = false;
     private OnScrollDispatchHelper mOnScrollDispatchHelper;
     protected boolean hasScrollEvent = false;
+    private @Nullable ReadableArray injectedJavaScriptConfig;
 
     /**
      * WebView must be created with an context of the current activity
@@ -1012,6 +1046,10 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
 
     public void setInjectedJavaScript(@Nullable String js) {
       injectedJS = js;
+    }
+
+    public void setInjectedJavaScriptConfig(@Nullable ReadableArray injectedJSConfig) {
+      injectedJavaScriptConfig = injectedJSConfig;
     }
 
     protected RNCWebViewBridge createRNCWebViewBridge(RNCWebView webView) {

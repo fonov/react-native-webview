@@ -10,7 +10,7 @@
 #import <React/RCTAutoInsetsProtocol.h>
 #import "RNCWKProcessPoolManager.h"
 #import <UIKit/UIKit.h>
-
+//#import "react-native-webview-Swift.h"
 #import "objc/runtime.h"
 
 static NSTimer *keyboardTimer;
@@ -103,15 +103,15 @@ static NSDictionary* customCertificatesForHost;
 
     // Workaround for StatusBar appearance bug for iOS 12
     // https://github.com/react-native-community/react-native-webview/issues/62
-      [[NSNotificationCenter defaultCenter] addObserver:self
-                                               selector:@selector(showFullScreenVideoStatusBars)
-                                                   name:UIWindowDidBecomeVisibleNotification
-                                                 object:nil];
-
-      [[NSNotificationCenter defaultCenter] addObserver:self
-                                               selector:@selector(hideFullScreenVideoStatusBars)
-                                                   name:UIWindowDidBecomeHiddenNotification
-                                                 object:nil];
+//      [[NSNotificationCenter defaultCenter] addObserver:self
+//                                               selector:@selector(showFullScreenVideoStatusBars)
+//                                                   name:UIWindowDidBecomeVisibleNotification
+//                                                 object:nil];
+//
+//      [[NSNotificationCenter defaultCenter] addObserver:self
+//                                               selector:@selector(hideFullScreenVideoStatusBars)
+//                                                   name:UIWindowDidBecomeHiddenNotification
+//                                                 object:nil];
   }
 
   return self;
@@ -167,6 +167,36 @@ static NSDictionary* customCertificatesForHost;
       [wkWebViewConfig.userContentController addUserScript:script];
     }
 
+      if (_injectedJavaScriptPro) {
+          for (int i = 0; i < [_injectedJavaScriptPro count]; i++) {
+              NSArray *currentItem = _injectedJavaScriptPro[i];
+              NSString *type = [RCTConvert NSString: currentItem[0]];
+              if ([type isEqualToString:@"file"]) {
+                  NSString *fileName = [RCTConvert NSString: currentItem[1]];
+                  BOOL forMainFrameOnly = [RCTConvert BOOL: currentItem[2]];
+
+                  NSArray *file = [fileName componentsSeparatedByString:@"."];
+
+                  NSString *filePath = [[NSBundle mainBundle] pathForResource:file[0] ofType:file[1]];
+                  NSString *fileSource = [NSString stringWithContentsOfFile:filePath encoding:NSUTF8StringEncoding error:nil];
+                  
+                  WKUserScript *userScript = [[WKUserScript alloc] initWithSource:fileSource injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly: forMainFrameOnly];
+                  [wkWebViewConfig.userContentController addUserScript:userScript];
+                  
+                  continue;
+              }
+              if ([type isEqualToString:@"string"]) {
+                  NSString *fileSource = [RCTConvert NSString: currentItem[1]];
+                  BOOL forMainFrameOnly = [RCTConvert BOOL: currentItem[2]];
+                                    
+                  WKUserScript *userScript = [[WKUserScript alloc] initWithSource:fileSource injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly: forMainFrameOnly];
+                  [wkWebViewConfig.userContentController addUserScript:userScript];
+                  
+                  continue;
+              }
+          }
+      }
+      
     wkWebViewConfig.allowsInlineMediaPlayback = _allowsInlineMediaPlayback;
 #if WEBKIT_IOS_10_APIS_AVAILABLE
     wkWebViewConfig.mediaTypesRequiringUserActionForPlayback = _mediaPlaybackRequiresUserAction
