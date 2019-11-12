@@ -35,11 +35,14 @@ public class JsInjectorClient {
   private final OkHttpClient httpClient;
 
   private ReadableArray injectJSConfig;
+  private StringBuilder jsResource;
 
 
   public JsInjectorClient(Context context) {
     this.context = context;
     this.httpClient = createHttpClient();
+
+    jsResource = new StringBuilder();
   }
 
   public void setInjectJSConfig(@Nullable ReadableArray injectJSConfig) {
@@ -64,24 +67,24 @@ public class JsInjectorClient {
       throw new UnsupportedOperationException("injectJSConfig must be set");
     }
 
-    StringBuilder jsResource = new StringBuilder();
+    if (jsResource.toString().isEmpty()) {
+      for (int i = 0; i < injectJSConfig.size(); i++) {
+        ReadableArray config = injectJSConfig.getArray(i);
+        if (config != null) {
+          String type = config.getString(0);
 
-    for (int i = 0; i < injectJSConfig.size(); i++) {
-      ReadableArray config = injectJSConfig.getArray(i);
-      if (config != null) {
-        String type = config.getString(0);
-
-        if (type != null && type.equals("file")) {
-          String name = config.getString(1);
-          if (name != null) {
-            int resID = getResId(name, R.raw.class);
-            String script = loadFile(context, resID);
-            jsResource.append(script);
-          }
-        } else if (type != null && type.equals("string")) {
-          String script = config.getString(1);
-          if (script != null) {
-            jsResource.append(script);
+          if (type != null && type.equals("file")) {
+            String name = config.getString(1);
+            if (name != null) {
+              int resID = getResId(name, R.raw.class);
+              String script = loadFile(context, resID);
+              jsResource.append(script);
+            }
+          } else if (type != null && type.equals("string")) {
+            String script = config.getString(1);
+            if (script != null) {
+              jsResource.append(script);
+            }
           }
         }
       }
